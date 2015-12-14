@@ -31,7 +31,7 @@ public class Map{
 		map_size = (int)(Math.random() * 99 + 1);//1~100
 		max_block = (int)Math.pow(map_size, 2.0) / 10;
 		
-		System.out.println("mapsize" + map_size);
+		System.out.println("mapsize" + map_size); 
 		System.out.println("max_block" + max_block);
 		
 		px = py = 0;
@@ -41,12 +41,13 @@ public class Map{
 		//Math.pow(map_size, 2.0) / 10
 		
 		while(bcnt != max_block){//최소 0 최대 1000
-			block.add((int)(Math.random() * max_block + 1));
+			block.add((int)(Math.random() * map_size*map_size + 1));
 			bcnt = block.size();
 		}
 
 		System.out.println("bcnt" + bcnt);
 	}
+	
 	
 	void setingPlayer(){
 		//랜덤으로 플레이어 위치 정하기
@@ -94,8 +95,8 @@ public class Map{
 				map[x][y].num = shell_num;
 				map[x][y].heuristicCost = Math.abs(x-ex)+Math.abs(y-ey);//@@
 				
+				b_iterator = block.iterator();  
 				while (b_iterator.hasNext()){//벽번호랑 같으면 벽으로 설정해줌
-					System.out.println((int)b_iterator.next());
 					if(shell_num == (int)b_iterator.next()){
 						map[x][y].block = true;
 					}
@@ -115,7 +116,7 @@ public class Map{
 		
 		setingPlayer();//플레이어 위치 정함
 		
-		setEndShell(24);
+		
 	}
 	
 	void checkAndUpdateCost(Shell current, Shell t, int cost){
@@ -191,29 +192,50 @@ public class Map{
 	        } 
 	    }
 	
-	void moveMap(){
-		Shell start = new Shell();
-		System.out.print(px + " " + py);
-		for(int i = path.size() - 2;i >= 0;i--){
-			start = path.get(i);
-			px = start.xpos;
-			py = start.ypos;
-			
-			try {
-				System.out.print(" -> " + px + " " + py);
-				Thread.sleep(1000);
-			} 
-			
-			catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}	
+	
+	
+	String moveMap(String _go){
+		String msg = new String();
+		
+		for(int i = 0; i< path.size(); i++){
+			if(_go.equals(Integer.toString(path.get(i).num))){
+				px = path.get(i).xpos;
+				py = path.get(i).ypos;
+				msg += "OK/move shell num:" + path.get(i).num + " x:" + px + " y:" + py;
+				return msg;
+			}
 		}
 		
-		
-		
+		msg = "MOVE_RESP/NO";
+		return msg;
 	}
-	void printPath(){
+	
+	String getInfo(){//로그인 후 넘기는 패킷
+		//LOGIN_RESP:OK:그리드공간 크기정보: 벽이 있는 셀들의 정보:사용자 위치정보\r\n
+		String strw ="LOGIN_RESP/OK";
+		strw += "/크기정보/" + Integer.toString(map_size * map_size) + "/벽 번호/";
+		b_iterator = block.iterator();  
+		while (b_iterator.hasNext()){//벽번호랑 같으면 벽으로 설정해줌
+			strw += "/" + Integer.toString((int)b_iterator.next());
+	    }
+		strw += "/사용자 위치/" + map[px][py].num + "-" + px + "," + py;
+		
+		return strw;
+	}
+	
+	String printPath(String _snum){
+		String msg = new String();
+		b_iterator = block.iterator();  
+		while (b_iterator.hasNext()){//벽번호랑 같으면 벽으로 설정해줌
+			if(_snum.equals(Integer.toString((int)b_iterator.next()))){
+				msg = "MOVE_RESP/NO";
+				return msg;
+			}
+	    }
+		
+		setEndShell(Integer.parseInt(_snum));
+		
+		AStar(); 
 		
 		//@@ 여긴 경로 보여주는건데 이걸 문자로 해서 보내주면 될듯
 		 if(closed[ex][ey]){
@@ -230,16 +252,19 @@ public class Map{
 	         } 
 	         
 	         int size_path = (int)path.size();
-	         System.out.println(size_path);
-	         System.out.print(path.get(size_path-1).xpos + " " + path.get(size_path-1).ypos);
-	         
-	         for(int i = size_path - 2; i >= 0; i--){
-	        	 System.out.print(" -> "+path.get(i).xpos + " " + path.get(i).ypos);
+	        // msg += path.get(size_path-1).num + "-" +path.get(size_path-1).xpos + "," + path.get(size_path-1).ypos;
+	         msg += "PATH/" + path.get(size_path-1).num;
+	         if(size_path >2){
+		         for(int i = size_path - 2; i >= 0; i--){
+		        	// msg += " -> " + path.get(i).num + "-" + path.get(i).xpos + "," + path.get(i).ypos;
+		        	 msg += "/" + path.get(i).num;
+		         }
 	         }
-	         
 	         System.out.println();
 		 }
 		
-		else System.out.println("No possible path");
+		else msg ="NOPATH";
+		 
+		 return msg;
 	}
 }
