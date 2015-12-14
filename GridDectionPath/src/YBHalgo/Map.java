@@ -3,16 +3,26 @@ package YBHalgo;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.PriorityQueue;
+
 
 public class Map{
+	public static final int DIAGONAL_COST = 14;//@@
+	public static final int V_H_COST = 10;//@@
+	    
 	int map_size;
 	Shell map[][];//셀배열로 맵을 만듬
+	PriorityQueue<Shell> open;//@@
+    static boolean closed[][];//@@
+    
 	int px,py;//나중에 클라이언트 시작점 알려주기위함
+	int ex,ey;
 	
 	int max_block;
 	HashSet<Integer> block = new HashSet<Integer>();
 	Iterator b_iterator = block.iterator(); 
 	ArrayList<Shell> nonblock = new ArrayList<Shell>();
+	ArrayList<Shell> path = new ArrayList<Shell>();
 	
 	int bcnt = 0;
 	
@@ -44,12 +54,36 @@ public class Map{
 				System.out.println("pnum" + pnum);
 				px = nonblock.get(pnum).xpos;
 				py = nonblock.get(pnum).ypos;
-				System.out.println(px + " " + py);
+				System.out.println("start " + px + " " + py);
 	}
+	
+	/*void setStartShell(int _snum){
+		px = nonblock.get(_snum).xpos;
+		py = nonblock.get(_snum).ypos;
+		System.out.println(px + " " + py);
+	}*/
+	
+	void setEndShell(int _snum){
+		ex = nonblock.get(_snum).xpos;
+		ey = nonblock.get(_snum).ypos;
+		System.out.println("end " + ex + " " + ey);
+    }
+	
+	
 	
 	void setingMap(){//맵 설정부분
 		int shell_num = 0;
 		map = new Shell[map_size][map_size];//우선 맵을 만들어주고
+		
+		//@@
+        closed = new boolean[map_size][map_size];
+        open = new PriorityQueue<>((Object o1, Object o2) -> {
+             Shell c1 = (Shell)o1;
+             Shell c2 = (Shell)o2;
+
+             return c1.finalCost<c2.finalCost?-1:
+                     c1.finalCost>c2.finalCost?1:0;
+         });//@@
 		
 		setingBlock();//벽설정
 		
@@ -58,6 +92,7 @@ public class Map{
 			for(int y = 0; y< map_size; y++){
 				map[x][y] = new Shell();
 				map[x][y].num = shell_num;
+				map[x][y].heuristicCost = Math.abs(x-ex)+Math.abs(y-ey);//@@
 				
 				while (b_iterator.hasNext()){//벽번호랑 같으면 벽으로 설정해줌
 					System.out.println((int)b_iterator.next());
@@ -76,6 +111,135 @@ public class Map{
 			}
 		}
 		
+		map[px][py].finalCost = 0;//@@
+		
 		setingPlayer();//플레이어 위치 정함
+		
+		setEndShell(24);
+	}
+	
+	void checkAndUpdateCost(Shell current, Shell t, int cost){
+        if(t.block == true || closed[t.xpos][t.ypos])return;
+        int t_final_cost = t.heuristicCost+cost;
+        
+        boolean inOpen = open.contains(t);
+        if(!inOpen || t_final_cost<t.finalCost){
+            t.finalCost = t_final_cost;
+            t.parent = current;
+            
+            if(!inOpen) open.add(t);
+        }
+    }
+	
+	void AStar(){//@@ http://www.codebytes.in/2015/02/a-shortest-path-finding-algorithm.html 참고했음 우연히 내가 짠 맵과 동일한 방식을 써서 고치는데 힘들이지않았음
+	        //add the start location to open list.
+	        open.add(map[px][py]);
+	        
+	        Shell current;
+	        
+	        while(true){ 
+	            current = open.poll();
+	            if(current.block==true)break;
+	            closed[current.xpos][current.ypos]=true; 
+	
+	            if(current.equals(map[ex][ey])){
+	                return; 
+	            } 
+	
+	            Shell t;  
+	            if(current.xpos-1>=0){
+	                t = map[current.xpos-1][current.ypos];
+	                checkAndUpdateCost(current, t, current.finalCost+V_H_COST); 
+	                
+	                //대각선이동
+	               /* if(current.ypos-1>=0){                      
+	                    t = map[current.xpos-1][current.ypos-1];
+	                    checkAndUpdateCost(current, t, current.finalCost+DIAGONAL_COST); 
+	                }
+	
+	                if(current.ypos+1<map[0].length){
+	                    t = map[current.xpos-1][current.ypos+1];
+	                    checkAndUpdateCost(current, t, current.finalCost+DIAGONAL_COST); 
+	                }*/
+	            } 
+	
+	            if(current.ypos-1>=0){
+	                t = map[current.xpos][current.ypos-1];
+	                checkAndUpdateCost(current, t, current.finalCost+V_H_COST); 
+	            }
+	
+	            if(current.ypos+1<map[0].length){
+	                t = map[current.xpos][current.ypos+1];
+	                checkAndUpdateCost(current, t, current.finalCost+V_H_COST); 
+	            }
+	
+	            if(current.xpos+1<map.length){
+	                t = map[current.xpos+1][current.ypos];
+	                checkAndUpdateCost(current, t, current.finalCost+V_H_COST); 
+	                
+	                //대각선이동
+	                /*if(current.ypos-1>=0){
+	                    t = map[current.xpos+1][current.ypos-1];
+	                    checkAndUpdateCost(current, t, current.finalCost+DIAGONAL_COST); 
+	                }
+	                
+	                if(current.ypos+1<map[0].length){
+	                   t = map[current.xpos+1][current.ypos+1];
+	                    checkAndUpdateCost(current, t, current.finalCost+DIAGONAL_COST); 
+	                }  */
+	            }
+	        } 
+	    }
+	
+	void moveMap(){
+		Shell start = new Shell();
+		System.out.print(px + " " + py);
+		for(int i = path.size() - 2;i >= 0;i--){
+			start = path.get(i);
+			px = start.xpos;
+			py = start.ypos;
+			
+			try {
+				System.out.print(" -> " + px + " " + py);
+				Thread.sleep(1000);
+			} 
+			
+			catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}	
+		}
+		
+		
+		
+	}
+	void printPath(){
+		
+		//@@ 여긴 경로 보여주는건데 이걸 문자로 해서 보내주면 될듯
+		 if(closed[ex][ey]){
+	        //Trace back the path 
+	         System.out.println("Path: ");
+	         Shell current = map[ex][ey];
+	         
+	         //경로 리스트에 넣어줌
+	         path.add(current);
+	         
+	         while(current.parent!=null){
+	             current = current.parent;
+	             path.add(current);
+	         } 
+	         
+	         int size_path = (int)path.size();
+	         System.out.println(size_path);
+	         System.out.print(path.get(size_path-1).xpos + " " + path.get(size_path-1).ypos);
+	         
+	         for(int i = size_path - 2; i >= 0; i--){
+	        	 System.out.print(" -> "+path.get(i).xpos + " " + path.get(i).ypos);
+	         }
+	         
+	         System.out.println();
+		 }
+		
+		else System.out.println("No possible path");
 	}
 }
